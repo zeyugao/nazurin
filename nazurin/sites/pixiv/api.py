@@ -5,6 +5,7 @@ import shlex
 import shutil
 import subprocess
 import time
+import re
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -34,6 +35,9 @@ from .models import PixivIllust, PixivImage
 
 SANITY_LEVEL_LIMITED = "https://s.pximg.net/common/images/limit_sanity_level_360.png"
 TOKEN_EXPIRATION_SECONDS = 3600
+
+html_hyper_link_pattern = re.compile(r'<a [^>]*href="([^"]*)"[^>]*>([^<]*)</a>')
+br_pattern = re.compile(r'<br\s*/?>')
 
 
 class Pixiv:
@@ -106,12 +110,42 @@ class Pixiv:
             raise NazurinError("Artwork is private")
         return illust
 
+    def normalize_desc(self, desc: str) -> str:
+        desc = br_pattern.sub('\n', desc)
+        desc = html_hyper_link_pattern.sub(r'<a href="\1">\2</a>', desc)
+        return desc
+
+    def parse_danbooru_metadata(self, artwork_id: int, metadata: dict) -> dict:
+        user_detail = metadata['user']
+        user_id = user_detail['id']
+        account = user_detail['account']
+
+        return {
+            'artist': {
+                'name': account.strip('_').replace('__', '_'),
+                'other_names': user_detail['name'],
+                'url_string': '''\
+https://www.pixiv.net/users/{user_id}
+https://www.pixiv.net/stacc/{account}
+'''.format(user_id=user_id, account=account),
+            },
+            'tags': [x['name'] for x in metadata['tags'] if 'users入り' not in x['name']],
+            'posts': {
+                'source': f'https://www.pixiv.net/artworks/{artwork_id}',
+                'artist_commentary_title': metadata['title'],
+                'artist_commentary_desc': self.normalize_desc(metadata['caption']),
+            },
+            'tag_str': 'pixiv',
+        }
+
     async def view(self, artwork_id: int) -> Illust:
         illust = await self.get_artwork(artwork_id)
         if illust.type == "ugoira":
             illust = await self.view_ugoira(illust)
         else:  # Ordinary illust
             illust = await self.view_illust(illust)
+        danbooru_metadata = self.parse_danbooru_metadata(artwork_id, illust.metadata)
+        illust.danbooru_metadata = danbooru_metadata
         return illust
 
     async def view_illust(self, illust) -> PixivIllust:

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Union
+from typing import List, Union, Optional
 
 from nazurin.config import MAX_PARALLEL_DOWNLOAD
 from nazurin.utils import Request
@@ -18,6 +18,7 @@ class Illust:
     caption: Caption = field(default_factory=Caption)
     metadata: dict = field(default_factory=dict)
     files: List[File] = field(default_factory=list)
+    danbooru_metadata: Optional[dict] = field(default_factory=dict)
 
     @property
     def all_files(self) -> List[File]:

@@ -34,13 +34,36 @@ class Bilibili:
         item = data["data"]["item"]
         return self.cleanup_item(item)
 
+    def parse_danbooru_metadata(self, dynamic_id: int, item: dict) -> dict:
+        """Parse Danbooru metadata from dynamic."""
+        bili_uid = item['modules']['module_author']['mid']
+        name = f'bili_{bili_uid}'
+        other_name = item['modules']['module_author']['name']
+
+        desc = item['modules']['module_dynamic']['desc']['text']
+
+        return {
+            'artist': {
+                'name': name,
+                'other_names': other_name,
+                'url_string': f'https://space.bilibili.com/{bili_uid}'
+            },
+            'posts': {
+                'source': f'https://t.bilibili.com/{dynamic_id}',
+                'artist_commentary_title': '',
+                'artist_commentary_desc': desc,
+            },
+            'tag_str': 'bili_dyn',
+        }
+
     async def fetch(self, dynamic_id: str) -> Illust:
         """Fetch images and detail."""
         item = await self.get_dynamic(dynamic_id)
         imgs = self.get_images(item)
         caption = self.build_caption(item)
         caption["url"] = f"https://www.bilibili.com/opus/{dynamic_id}"
-        return Illust(int(dynamic_id), imgs, caption, item)
+        danbooru_metadata = self.parse_danbooru_metadata(int(dynamic_id), item)
+        return Illust(int(dynamic_id), imgs, caption, item, danbooru_metadata=danbooru_metadata)
 
     @staticmethod
     def get_images(item: dict) -> List[Image]:

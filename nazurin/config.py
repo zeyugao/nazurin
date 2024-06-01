@@ -19,6 +19,10 @@ PORT: int = env.int("PORT", default=80)
 STORAGE: List[str] = env.list("STORAGE", subcast=str, default=["Local"])
 STORAGE_DIR: str = env.str("STORAGE_DIR", default="Pictures")
 
+DANBOORU_SITE_URL: str = env.str("DANBOORU_SITE_URL", default="https://danbooru.donmai.us")
+DANBOORU_USERNAME: str = env.str("DANBOORU_USERNAME", default=None)
+DANBOORU_API_KEY: str = env.str("DANBOORU_API_KEY", default=None)
+
 DATABASE: str = env.str("DATABASE", default="Local")
 # Nazurin data collection in database
 NAZURIN_DATA: str = "nazurin"
