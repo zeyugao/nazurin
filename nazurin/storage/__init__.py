@@ -8,6 +8,7 @@ from nazurin.config import STORAGE, DANBOORU_SITE_URL, DANBOORU_USERNAME, DANBOO
 from nazurin.models import Illust
 from nazurin.utils import logger
 from .danbooru import MyDanbooru
+from pybooru.exceptions import PybooruHTTPError
 
 
 R = TypeVar("R")
@@ -59,14 +60,28 @@ class Storage:
         if 'tags' in danbooru_metadata:
             tags.extend(danbooru_metadata['tags'])
 
-        try:
-            self.danbooru_client.bulk_upload_then_post(
-                files=files,
-                tags=tags,
-                **danbooru_metadata['posts'],
-            )
-        except Exception as e:
-            logger.exception(e)
+        exception = None
+
+        for _ in range(3):
+            try:
+                self.danbooru_client.bulk_upload_then_post(
+                    files=files,
+                    tags=tags,
+                    **danbooru_metadata['posts'],
+                )
+                return
+            except PybooruHTTPError as e:
+                if 'Duplicate post' in str(e):
+                    logger.info("Duplicate post")
+                    return
+                logger.exception(e)
+                exception = e
+            except Exception as e:
+                logger.exception(e)
+                exception = e
+
+        if exception:
+            raise exception
 
     async def store(self, illust: Illust):
         await self.danbooru_upload(illust)

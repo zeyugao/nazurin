@@ -1,9 +1,56 @@
 
 from pybooru import Danbooru
 import os
+from json import JSONDecodeError
+import requests
+from pybooru.exceptions import (PybooruError, PybooruHTTPError)
 
 
 class MyDanbooru(Danbooru):
+    def _request(self, url, api_call, request_args, method='GET'):
+        """Function to request and returning JSON data.
+
+        Parameters:
+            url (str): Base url call.
+            api_call (str): API function to be called.
+            request_args (dict): All requests parameters.
+            method (str): (Defauld: GET) HTTP method 'GET' or 'POST'
+
+        Raises:
+            PybooruHTTPError: HTTP Error.
+            requests.exceptions.Timeout: When HTTP Timeout.
+            ValueError: When can't decode JSON response.
+        """
+        try:
+            if method != 'GET':
+                # Reset content-type for data encoded as a multipart form
+                self.client.headers.update({'content-type': None})
+
+            response = self.client.request(method, url, **request_args)
+
+            self.last_call.update({
+                'API': api_call,
+                'url': response.url,
+                'status_code': response.status_code,
+                'status': self._get_status(response.status_code),
+                'headers': response.headers
+            })
+
+            if response.status_code in (200, 201, 202):
+                return response.json()
+            elif response.status_code == 204:
+                return True
+            if "Duplicate of" in response.text:
+                raise PybooruHTTPError("Duplicate post", response.status_code,
+                                       response.url)
+            raise PybooruHTTPError("In _request", response.status_code,
+                                   response.url)
+        except requests.exceptions.Timeout:
+            raise PybooruError("Timeout! url: {0}".format(response.url))
+        except JSONDecodeError as e:
+            raise PybooruError("JSON Error: {0} in line {1} column {2}".format(
+                e.msg, e.lineno, e.colno))
+
     def upload_create(self, files):
         file_ = {}
         for idx, file in enumerate(files):
