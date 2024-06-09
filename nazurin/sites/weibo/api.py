@@ -24,6 +24,24 @@ class Weibo:
             post = self.parse_html(html)
             return post
 
+    def parse_danbooru_metadata(self, post) -> dict:
+        """Parse Danbooru metadata from dynamic."""
+        user = post["user"]
+
+        return {
+            'artist': {
+                'name': user['screen_name'],
+                'other_names': user['id'],
+                'url_string': f"https://weibo.com/{user['id']}",
+            },
+            'posts': {
+                'source': f"https://weibo.com/{user['id']}/{post['bid']}",
+                'artist_commentary_title': '',
+                'artist_commentary_desc': post["status_title"],
+            },
+            'tag_str': 'weibo',
+        }
+
     async def fetch(self, post_id: str) -> WeiboIllust:
         post = await self.get_post(post_id)
         imgs = self.get_images(post)
@@ -34,6 +52,7 @@ class Weibo:
             caption,
             post,
             referer=f"https://m.weibo.cn/detail/{post_id}",
+            danbooru_metadata=self.parse_danbooru_metadata(post),
         )
 
     def get_images(self, post) -> List[WeiboImage]:

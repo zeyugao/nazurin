@@ -43,7 +43,7 @@ class Storage:
     @async_wrapper
     def danbooru_upload(self, illust: Illust):
         danbooru_metadata = illust.danbooru_metadata
-        if danbooru_metadata is None:
+        if not danbooru_metadata:
             return
 
         try:
