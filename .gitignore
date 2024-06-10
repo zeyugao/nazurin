@@ -66,3 +66,5 @@ data/*
 
 # Filesystem file
 .DS_Store
+
+.direnv
