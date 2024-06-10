@@ -4,7 +4,7 @@ let
   pythonPackages = pkgs.python3Packages;
 in
 pkgs.mkShell {
-  name = "python-venv";
+  name = "nazurin-venv";
   venvDir = "./.venv";
   buildInputs = [
     # A Python interpreter including the 'venv' module is required to bootstrap
