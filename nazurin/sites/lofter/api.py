@@ -39,6 +39,26 @@ class Lofter:
             post = data["response"]["posts"][0]["post"]
             return post
 
+    def parse_danbooru_metadata(self, post) -> dict:
+        """Parse Danbooru metadata from dynamic."""
+
+        blogName = post["blogInfo"]["blogName"]
+
+        return {
+            'artist': {
+                'name': blogName,
+                'other_names': post["blogInfo"]["blogNickName"],
+                'url_string': f"https://{blogName}.lofter.com/",
+            },
+            'posts': {
+                'source': post["blogPageUrl"],
+                'artist_commentary_title': '',
+                'artist_commentary_desc': post["content"],
+            },
+            'tags': post["tagList"],
+            'tag_str': 'lofter',
+        }
+
     async def fetch(self, username: str, permalink: str) -> Illust:
         post = await self.get_post(username, permalink)
         imgs = self.get_images(post)
@@ -51,7 +71,7 @@ class Lofter:
                 "tags": " ".join(["#" + tag for tag in post["tagList"]]),
             },
         )
-        return Illust(int(post["id"]), imgs, caption, post)
+        return Illust(int(post["id"]), imgs, caption, post, danbooru_metadata=self.parse_danbooru_metadata(post))
 
     @staticmethod
     def get_images(post: dict) -> List[Image]:
