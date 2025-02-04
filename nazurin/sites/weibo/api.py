@@ -86,8 +86,8 @@ class Weibo:
             {
                 "title": post["status_title"],
                 "author": f"#{user['screen_name']}",
-                "desktop_url": f"https://weibo.com/{user['id']}/{post['bid']}",
-                "mobile_url": f"https://m.weibo.cn/detail/{post['mid']}",
+                "url": f"https://weibo.com/{user['id']}/{post['bid']}",
+                # "mobile_url": f"https://m.weibo.cn/detail/{post['mid']}",
                 "tags": tag_string,
             },
         )

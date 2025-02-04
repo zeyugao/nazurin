@@ -4,7 +4,7 @@ from urllib.parse import urljoin
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.enums import UpdateType
-from aiogram.types import Message, Update
+from aiogram.types import Message, Update, File
 from aiogram.utils.chat_action import ChatActionMiddleware
 from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from aiohttp import web
