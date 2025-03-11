@@ -27,7 +27,7 @@ class XhsApi:
 
     def get_video_info(self, data) -> str:
         try:
-            return data['video']['media']['stream']['h264']
+            return data['video']['media']['stream']['h264'][0]
         except:
             return None
         
