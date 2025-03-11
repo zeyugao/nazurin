@@ -7,7 +7,7 @@ from nazurin.utils.exceptions import NazurinError
 from nazurin.utils.logging import logger
 
 from .config import DESTINATION, FILENAME
-from .api import XhsApi
+from .xhs import XhsApi
 
 
 class Xhs:
