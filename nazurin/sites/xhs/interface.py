@@ -10,9 +10,9 @@ patterns = [
     # https://www.xiaohongshu.com/explore/作品ID?xsec_token=XXX
     # https://www.xiaohongshu.com/discovery/item/作品ID?xsec_token=XXX
     # https://xhslink.com/分享码
-    r"(https?://www\.xiaohongshu\.com/explore/\S+)",
-    r"(https?://www\.xiaohongshu\.com/discovery/item/\S+)",
-    r"(https?://xhslink\.com/\S+),.*",
+    r"(https?://www\.xiaohongshu\.com/explore/[a-zA-Z0-9_\-]+(?:\?[^?\s]*)?)",
+    r"(https?://www\.xiaohongshu\.com/discovery/item/[a-zA-Z0-9_\-]+(?:\?[^?\s]*)?)",
+    r"(https?://xhslink\.com/[a-zA-Z0-9_\-/]+)"
 ]
 
 
