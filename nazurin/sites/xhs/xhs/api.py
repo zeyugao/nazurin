@@ -3,7 +3,7 @@ from nazurin.utils import Request
 from urllib.parse import urlparse, urlunparse
 from datetime import datetime, timezone
 from typing import List, Tuple
-from converter import Converter
+from .converter import Converter
 
 class XhsApi:
 
