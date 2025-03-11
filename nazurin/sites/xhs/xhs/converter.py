@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, List, Tuple, Set, Dict, Any
 
 from lxml.etree import HTML
 from yaml import safe_load
@@ -36,7 +36,7 @@ class Converter:
         return cls.deep_get(data, cls.KEYS_LINK) or {}
 
     @classmethod
-    def deep_get(cls, data: dict, keys: list | tuple, default=None):
+    def deep_get(cls, data: dict, keys: Union[List, Tuple], default=None):
         if not data:
             return default
         try:
@@ -50,10 +50,10 @@ class Converter:
             return default
 
     @staticmethod
-    def safe_get(data: Union[dict, list, tuple, set], index: int):
+    def safe_get(data: Union[Dict, List, Tuple, Set], index: int) -> Any:
         if isinstance(data, dict):
             return list(data.values())[index]
-        elif isinstance(data, list | tuple | set):
+        elif isinstance(data, (list, tuple, set)):  # 使用元组代替 | 运算符
             return data[index]
         raise TypeError
 

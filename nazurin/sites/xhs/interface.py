@@ -3,7 +3,7 @@ import re
 from nazurin.models import Document
 from nazurin.sites import HandlerResult
 
-from .api import Xhs
+from .xhs import Xhs
 from .config import COLLECTION
 
 patterns = [
