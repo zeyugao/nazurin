@@ -1,6 +1,6 @@
 """Xhs dynamic site plugin."""
 
-from .xhs import Xhs
+from .api import Xhs
 from .config import PRIORITY
 from .interface import handle, patterns
 
