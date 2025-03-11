@@ -3,7 +3,7 @@ import re
 from nazurin.models import Document
 from nazurin.sites import HandlerResult
 
-from .api import Xhs
+from .xhs import Xhs
 from .config import COLLECTION
 
 patterns = [
@@ -12,7 +12,7 @@ patterns = [
     # https://xhslink.com/分享码
     r"(https?://www\.xiaohongshu\.com/explore/\S+)",
     r"(https?://www\.xiaohongshu\.com/discovery/item/\S+)",
-    r"(https?://xhslink\.com/\S+)",
+    r"(https?://xhslink\.com/\S+),.*",
 ]
 
 

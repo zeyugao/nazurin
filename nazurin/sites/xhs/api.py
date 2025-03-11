@@ -68,8 +68,8 @@ class Xhs:
                     destination,
                     data['noteId'],
                     size,
-                    data['width'],
-                    data['height'],
+                    pic['width'],
+                    pic['height'],
                 ),
             )
         return Illust(data['noteId'], imgs, self.build_caption(self.url, data), data)
