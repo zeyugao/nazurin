@@ -103,6 +103,6 @@ class Xhs:
             {
                 "author": "#" + data["user"]["nickname"],
                 "title": data["title"],
-                "url": url
+                "url": url.split('?')[0]
             },
         )
