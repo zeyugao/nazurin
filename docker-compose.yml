@@ -2,13 +2,21 @@ version: "3.4"
 
 services:
   nazurin:
-    # Alternatively, you may use "yyoung01/nazurin:latest"
-    image: ghcr.io/y-young/nazurin:latest
     build: .
+    container_name: nazurin
     env_file:
       - ".env"
     volumes:
-      - "./data:/app/data"
-    ports:
-      - "80"
+      - "./:/mount/"
     restart: unless-stopped
+    links:
+      - mongo
+
+  mongo:
+    image: mongo
+    restart: unless-stopped
+    volumes:
+      - ./mongodb/db:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: elsa
+      MONGO_INITDB_ROOT_PASSWORD: ae43d7c5f7ff74a31a7f12dc1b79a4c0
