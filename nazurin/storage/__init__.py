@@ -2,7 +2,7 @@
 
 import asyncio
 import importlib
-from typing import ClassVar, List, Callable, TypeVar, Any, Coroutine
+from typing import ClassVar, Callable, TypeVar, Any, Coroutine
 
 from nazurin.config import STORAGE, DANBOORU_SITE_URL, DANBOORU_USERNAME, DANBOORU_API_KEY
 from nazurin.models import Illust
@@ -26,7 +26,7 @@ def async_wrapper(function: Callable[..., R]) -> Callable[..., Coroutine[Any, An
 class Storage:
     """Storage manager."""
 
-    disks: ClassVar[List[object]] = []
+    disks: ClassVar[list[object]] = []
     danbooru_client: MyDanbooru = MyDanbooru(
         site_url=DANBOORU_SITE_URL,
         username=DANBOORU_USERNAME,

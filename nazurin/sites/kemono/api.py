@@ -1,9 +1,7 @@
 import os
 from datetime import datetime, timezone
 from mimetypes import guess_type
-from typing import ClassVar, Tuple, Union
-
-from bs4 import BeautifulSoup
+from typing import ClassVar, Union
 
 from nazurin.models import Caption, Illust, Image
 from nazurin.models.file import File
@@ -26,6 +24,7 @@ class Kemono:
             post = await response.json()
             if not post:
                 raise NazurinError("Post not found")
+            post = post["post"]
             username = await self.get_username(service, user_id)
             post["username"] = username
             return post
@@ -56,16 +55,11 @@ class Kemono:
 
     @network_retry
     async def get_username(self, service: str, user_id: str) -> str:
-        url = f"https://kemono.su/{service}/user/{user_id}"
+        url = f"{self.API_BASE}/{service}/user/{user_id}/profile"
         async with Request() as request, request.get(url) as response:
             response.raise_for_status()
-            response_text = await response.text()
-            soup = BeautifulSoup(response_text, "html.parser")
-            tag = soup.find("meta", attrs={"name": "artist_name"})
-            if not tag:
-                return ""
-            username = tag.get("content", "")
-            return username
+            profile = await response.json()
+            return profile.get("name", "")
 
     async def fetch(
         self,
@@ -122,7 +116,7 @@ class Kemono:
         return Illust("_".join(identifier), images, caption, post, download_files)
 
     @staticmethod
-    def get_storage_dest(post: dict, pretty_name: str, path: str) -> Tuple[str, str]:
+    def get_storage_dest(post: dict, pretty_name: str, path: str) -> tuple[str, str]:
         """
         Format destination and filename.
         """
@@ -152,8 +146,7 @@ class Kemono:
     @staticmethod
     def get_url(post: dict) -> str:
         url = (
-            f"https://kemono.su/{post['service']}"
-            f"/user/{post['user']}/post/{post['id']}"
+            f"https://kemono.su/{post['service']}/user/{post['user']}/post/{post['id']}"
         )
         revision = post.get("revision_id")
         if revision:

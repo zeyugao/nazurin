@@ -1,5 +1,6 @@
 import re
 from nazurin.models import Illust
+from nazurin.utils.exceptions import NazurinError
 
 from ..config import API, TwitterAPI
 from .syndication import SyndicationAPI
@@ -39,8 +40,10 @@ class Twitter:
         """Fetch & return tweet images and information."""
         if API == TwitterAPI.SYNDICATION:
             illust = await Twitter.syndication.fetch(status_id)
-        if API == TwitterAPI.WEB:
+        elif API == TwitterAPI.WEB:
             illust = await Twitter.web.fetch(status_id)
+        else:
+            raise NazurinError(f"Unsupported Twitter API type: {API}")
 
         danbooru_metadata = self.parse_danbooru_metadata(status_id, illust.metadata)
 

@@ -9,7 +9,7 @@ import re
 import zipfile
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, List, Tuple
+from typing import Callable
 
 import aiofiles
 import aiofiles.os
@@ -281,7 +281,7 @@ https://www.pixiv.net/stacc/{account}
         await aiofiles.os.remove(input_config.path)
         return output_mp4
 
-    def get_images(self, illust) -> List[PixivImage]:
+    def get_images(self, illust) -> list[PixivImage]:
         """Get images from an artwork."""
         width = illust.width
         height = illust.height
@@ -350,7 +350,7 @@ https://www.pixiv.net/stacc/{account}
         return caption
 
     @staticmethod
-    def get_storage_dest(url: str, illust: dict, page: int = 0) -> Tuple[str, str]:
+    def get_storage_dest(url: str, illust: dict, page: int = 0) -> tuple[str, str]:
         """
         Format destination and filename.
         """
