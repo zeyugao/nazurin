@@ -68,3 +68,5 @@ data/*
 .DS_Store
 
 .direnv
+
+mongodb
