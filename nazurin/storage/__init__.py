@@ -85,6 +85,6 @@ class Storage:
 
     async def store(self, illust: Illust):
         await self.danbooru_upload(illust)
-        tasks = [disk.store(illust.all_files) for disk in self.disks]
-        await asyncio.gather(*tasks)
+        # tasks = [disk.store(illust.all_files) for disk in self.disks]
+        # await asyncio.gather(*tasks)
         logger.info("Storage completed")
