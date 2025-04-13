@@ -18,6 +18,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./mongodb/db:/data/db
+    command: mongod --quiet --logpath /dev/null 
     environment:
       MONGO_INITDB_ROOT_USERNAME: elsa
       MONGO_INITDB_ROOT_PASSWORD: ae43d7c5f7ff74a31a7f12dc1b79a4c0
