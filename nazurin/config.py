@@ -55,6 +55,6 @@ UA: str = (
 
 # Local directory to store database and temporary files
 DATA_DIR: str = "data"
-TEMP_DIR: str = '/dev/shm/nazurin'
+TEMP_DIR: str = '/tmp/nazurin'
 CLEANUP_INTERVAL: int = env.int("CLEANUP_INTERVAL", default=7)
 ACCESS_LOG_FORMAT: str = '%a "%r" %s %b "%{Referer}i" "%{User-Agent}i"'
