@@ -27,6 +27,7 @@ dependencies = [
     "firebase-admin~=6.6.0",
     "humanize~=4.11.0",
     "loguru~=0.7.3",
+    "lxml>=5.3.2",
     "mega-py",
     "minio~=7.2.15",
     "motor~=3.7.0",
@@ -37,6 +38,7 @@ dependencies = [
     "pydrive2~=1.21.3",
     "tenacity~=9.0.0",
     "tinydb~=4.8.2",
+    "yarl>=1.18.3",
 ]
 
 [project.scripts]

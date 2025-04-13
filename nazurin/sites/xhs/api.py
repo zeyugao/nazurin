@@ -15,6 +15,32 @@ class Xhs:
     def __init__(self):
         self.api = XhsApi()
 
+    def parse_danbooru_metadata(self, note_id: str, data: dict) -> dict:
+        """Parse Danbooru metadata from XHS note."""
+        user = data["user"]
+        user_id = user.get("userId", "")
+        nickname = user.get("nickname", "")
+        
+        # Extract tags from tagList if available
+        tags = []
+        if "tagList" in data and data["tagList"]:
+            tags = [tag["name"] for tag in data["tagList"]]
+            
+        return {
+            'artist': {
+                'name': f'xhs_{user_id}',
+                'other_names': nickname,
+                'url_string': f'https://www.xiaohongshu.com/user/profile/{user_id}'
+            },
+            'posts': {
+                'source': f'https://www.xiaohongshu.com/discovery/item/{note_id}',
+                'artist_commentary_title': data.get('title', ''),
+                'artist_commentary_desc': data.get('desc', ''),
+            },
+            'tag_str': 'xhs',
+            'tags': tags
+        }
+
     async def fetch(self, dynamic_id: str) -> Illust:
         """Fetch images and detail."""
         self.url = dynamic_id
@@ -25,12 +51,18 @@ class Xhs:
         url_type = data["type"]
         caption = self.build_caption(self.url, data)
         if url_type == 'video':
-            return await self.get_video(data)
+            illust = await self.get_video(data)
         elif url_type == 'normal':
-            return await self.get_images(data)
-        return caption
+            illust = await self.get_images(data)
+        else:
+            illust = caption
+            
+        # Add danbooru metadata to the illust
+        if isinstance(illust, Illust) or isinstance(illust, Ugoira):
+            illust.danbooru_metadata = self.parse_danbooru_metadata(data['noteId'], data)
+            
+        return illust
 
-        
     async def get_video(self, data: dict) -> Ugoira:
         # 将信息储存在字典中/Store information in a dictionary
         video_data = self.api.get_video_info(data)
