@@ -3,6 +3,7 @@ version: "3.4"
 services:
   nazurin:
     build: .
+    image: nazurin
     container_name: nazurin
     env_file:
       - ".env"
