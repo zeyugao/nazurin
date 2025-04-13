@@ -2,6 +2,7 @@
 
 import asyncio
 import importlib
+import os
 from typing import ClassVar, Callable, TypeVar, Any, Coroutine
 
 from nazurin.config import STORAGE, DANBOORU_SITE_URL, DANBOORU_USERNAME, DANBOORU_API_KEY
@@ -85,6 +86,12 @@ class Storage:
 
     async def store(self, illust: Illust):
         await self.danbooru_upload(illust)
+
+        try:
+            for file in illust.all_files:
+                os.unlink(file.path)
+        except Exception as e:
+            logger.exception(f"Error while deleting files: {e}")
         # tasks = [disk.store(illust.all_files) for disk in self.disks]
         # await asyncio.gather(*tasks)
         logger.info("Storage completed")
