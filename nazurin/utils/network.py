@@ -1,6 +1,7 @@
 import abc
 import os
 from collections.abc import AsyncGenerator
+import yarl
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from typing import Optional, Union
 
@@ -65,7 +66,8 @@ class Request(ClientSession, NazurinRequestSession):
         )
 
     async def download(self, url: str, destination: Union[str, os.PathLike]):
-        async with self.get(url) as response:
+        yarl_url = yarl.URL(url, encoded=True)
+        async with self.get(yarl_url) as response:
             if not response.ok:
                 logger.error("Download failed with status code {}", response.status)
                 logger.info("Response: {}", await response.content.read())
