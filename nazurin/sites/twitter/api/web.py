@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import secrets
+import random
+import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from http import HTTPStatus
@@ -273,48 +275,89 @@ class WebAPI(BaseAPI):
             WebAPI.cookies,
         )
 
-        async with (
-            Request(
-                headers=headers,
-                cookies=WebAPI.cookies,
-                # Twitter homepage has long content-security-policy header
-                max_field_size=10000,
-            ) as request,
-            request.request(method, url, **kwargs) as response,
-        ):
-            logger.debug(
-                "Response status={}, headers={}, cookies={}",
-                response.status,
-                response.headers,
-                response.cookies,
-            )
-            if not response.ok:
-                result = await response.text()
-                logger.error("Web API Error: {}, {}", response.status, result)
-                if response.status == HTTPStatus.TOO_MANY_REQUESTS:
-                    headers = response.headers
-                    detail = ""
-                    if (
-                        Headers.RATE_LIMIT_LIMIT in headers
-                        and Headers.RATE_LIMIT_RESET in headers
-                    ):
-                        rate_limit = int(headers[Headers.RATE_LIMIT_LIMIT])
-                        reset_time = int(headers[Headers.RATE_LIMIT_RESET])
-                        logger.error(
-                            "Rate limited, limit: {}, reset: {}",
-                            rate_limit,
-                            reset_time,
-                        )
-                        reset_time = datetime.fromtimestamp(
-                            reset_time,
-                            tz=timezone.utc,
-                        )
-                        detail = f"Rate limit: {rate_limit}, Reset time: {reset_time}"
-                    raise NazurinError(
-                        "Hit API rate limit, please try again later. " + detail,
+        while True:  # Keep trying until successful
+            try:
+                async with (
+                    Request(
+                        headers=headers,
+                        cookies=WebAPI.cookies,
+                        # Twitter homepage has long content-security-policy header
+                        max_field_size=10000,
+                    ) as request,
+                    request.request(method, url, **kwargs) as response,
+                ):
+                    logger.debug(
+                        "Response status={}, headers={}, cookies={}",
+                        response.status,
+                        response.headers,
+                        response.cookies,
                     )
-            WebAPI._update_cookies(response.cookies)
-            yield response
+                    if not response.ok:
+                        result = await response.text()
+                        logger.error("Web API Error: {}, {}", response.status, result)
+                        if response.status == HTTPStatus.TOO_MANY_REQUESTS:
+                            headers = response.headers
+                            if (
+                                Headers.RATE_LIMIT_LIMIT in headers
+                                and Headers.RATE_LIMIT_RESET in headers
+                            ):
+                                rate_limit = int(headers[Headers.RATE_LIMIT_LIMIT])
+                                reset_timestamp = int(headers[Headers.RATE_LIMIT_RESET])
+                                reset_time = datetime.fromtimestamp(
+                                    reset_timestamp,
+                                    tz=timezone.utc,
+                                )
+                                
+                                logger.error(
+                                    "Rate limited, limit: {}, reset: {}",
+                                    rate_limit,
+                                    reset_time,
+                                )
+                                
+                                # Calculate how long to sleep until reset time
+                                now = datetime.now(timezone.utc)
+                                wait_seconds = (reset_time - now).total_seconds()
+                                
+                                # Add an additional random delay of 1-10 minutes
+                                additional_delay = random.randint(60, 600)
+                                total_wait = max(0, wait_seconds) + additional_delay
+                                
+                                logger.info(
+                                    "Waiting until rate limit reset plus {} seconds. Total wait: {} seconds",
+                                    additional_delay,
+                                    total_wait,
+                                )
+                                
+                                await asyncio.sleep(total_wait)
+                                # Continue the loop to retry after sleeping
+                                continue
+                            else:
+                                # No specific reset time provided, use a default wait time
+                                wait_time = random.randint(600, 1200)  # 10-20 minutes
+                                logger.info(
+                                    "No rate limit reset time provided. Waiting for {} seconds before retrying",
+                                    wait_time,
+                                )
+                                await asyncio.sleep(wait_time)
+                                # Continue the loop to retry after sleeping
+                                continue
+                            
+                        # For non-rate-limit errors, raise the error
+                        raise NazurinError(
+                            f"Twitter web API error ({response.status}, {url=}): {result}"
+                        )
+                    
+                    # If we reach here, the request was successful
+                    WebAPI._update_cookies(response.cookies)
+                    yield response
+                    # After yielding the response, break out of the loop
+                    break
+                    
+            except Exception as e:
+                # If it's not a rate limit error, re-raise the exception
+                if not isinstance(e, NazurinError) or "rate limit" not in str(e).lower():
+                    raise
+                # Otherwise continue the loop (which will retry after sleeping)
 
     @staticmethod
     def _update_cookies(cookies: SimpleCookie):
