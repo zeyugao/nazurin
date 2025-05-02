@@ -39,7 +39,7 @@ dependencies = [
     "tenacity~=9.0.0",
     "tinydb~=4.8.2",
     "yarl>=1.18.3",
-    "xclienttransaction>=0.0.2",
+    "xclienttransaction~=0.0.7",
 ]
 
 [project.scripts]
