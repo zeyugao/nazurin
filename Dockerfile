@@ -12,12 +12,6 @@ RUN apk add --update git build-base libffi-dev curl-dev
 
 WORKDIR /app
 
-# Install requirements
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project --no-dev
-
 # Install FFmpeg
 ARG TARGETARCH
 ARG FFMPEG_VERSION=4.2.2
@@ -26,6 +20,12 @@ RUN echo "Download from https://www.johnvansickle.com/ffmpeg/old-releases/ffmpeg
     wget https://www.johnvansickle.com/ffmpeg/old-releases/ffmpeg-${FFMPEG_VERSION}-${TARGETARCH}-static.tar.xz -O ffmpeg.tar.xz && \
     tar Jxvf ./ffmpeg.tar.xz && \
     cp ./ffmpeg-${FFMPEG_VERSION}-${TARGETARCH}-static/ffmpeg /usr/local/bin/
+
+# Install requirements
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-dev
 
 # Runtime
 FROM python:${PYTHON_VERSION}-alpine
