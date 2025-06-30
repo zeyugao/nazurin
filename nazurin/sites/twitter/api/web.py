@@ -296,7 +296,7 @@ class WebAPI(BaseAPI):
                         result = await response.text()
                         logger.error("Web API Error: {}, {}", response.status, result)
                         if response.status == HTTPStatus.TOO_MANY_REQUESTS:
-                            headers = response.headers
+                            headers = dict(response.headers)
                             if (
                                 Headers.RATE_LIMIT_LIMIT in headers
                                 and Headers.RATE_LIMIT_RESET in headers
