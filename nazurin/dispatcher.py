@@ -1,4 +1,5 @@
 import asyncio
+import time
 from typing import ClassVar
 from urllib.parse import urljoin
 
@@ -24,6 +25,7 @@ from .server import NazurinServer
 
 class NazurinDispatcher(Dispatcher):
     allowed_updates: ClassVar[list[UpdateType]] = [UpdateType.MESSAGE]
+    _last_already_exists_error_reply_time: float = 0
 
     def __init__(self, bot: NazurinBot):
         super().__init__()
@@ -150,4 +152,8 @@ class NazurinDispatcher(Dispatcher):
             ]:
                 await message.react([ReactionTypeEmoji(emoji="❤")])
         except AlreadyExistsError as error:
-            await message.reply(error.msg)
+            current_time = time.time()
+            # Rate limiting: only allow 1 error reply per second
+            if current_time - self._last_already_exists_error_reply_time >= 1.0:
+                await message.reply(error.msg)
+                self._last_already_exists_error_reply_time = current_time
