@@ -154,6 +154,6 @@ class NazurinDispatcher(Dispatcher):
         except AlreadyExistsError as error:
             current_time = time.time()
             # Rate limiting: only allow 1 error reply per second
-            if current_time - self._last_already_exists_error_reply_time >= 1.0:
+            if current_time - self._last_already_exists_error_reply_time > 2.0:
                 await message.reply(error.msg)
                 self._last_already_exists_error_reply_time = current_time
