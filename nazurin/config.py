@@ -66,6 +66,7 @@ class FeedbackType(str, enum.Enum):
     REPLY = "reply"
     REACTION = "reaction"
     BOTH = "both"
+    NONE = "none"
 
 
 FEEDBACK_TYPE: FeedbackType = env.enum(
