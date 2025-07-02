@@ -129,7 +129,7 @@ https://www.pixiv.net/users/{user_id}
 https://www.pixiv.net/stacc/{account}
 '''.format(user_id=user_id, account=account),
             },
-            'tags': [x['name'] for x in metadata['tags'] if 'users入り' not in x['name']],
+            'tags': [x['name'] for x in metadata['tags'] if 'users 入り' not in x['name']],
             'posts': {
                 'source': f'https://www.pixiv.net/artworks/{artwork_id}',
                 'artist_commentary_title': metadata['title'],
@@ -177,6 +177,7 @@ https://www.pixiv.net/stacc/{account}
         artwork_id: int,
         privacy: PixivPrivacy = PixivPrivacy.PUBLIC,
     ):
+        return True
         response = await self.call(Pixiv.illust_bookmark_add, artwork_id, privacy.value)
         if "error" in response:
             logger.error(response)
