@@ -25,7 +25,7 @@ from .server import NazurinServer
 
 class NazurinDispatcher(Dispatcher):
     allowed_updates: ClassVar[list[UpdateType]] = [UpdateType.MESSAGE]
-    _last_already_exists_error_reply_time: float = 0
+    _last_reply_time: float = 0
 
     def __init__(self, bot: NazurinBot):
         super().__init__()
@@ -33,7 +33,7 @@ class NazurinDispatcher(Dispatcher):
 
         self.update.outer_middleware(AuthMiddleware())
         self.message.middleware(LoggingMiddleware())
-        self.message.middleware(ChatActionMiddleware())
+        # self.message.middleware(ChatActionMiddleware())
 
         self.server = NazurinServer(bot)
 
@@ -145,7 +145,10 @@ class NazurinDispatcher(Dispatcher):
                 FeedbackType.REPLY,
                 FeedbackType.BOTH,
             ]:
-                await message.reply("Done!")
+                current_time = time.time()
+                if current_time - self._last_reply_time > 2.0:
+                    self._last_reply_time = current_time
+                    await message.reply("Done!")
             if config.FEEDBACK_TYPE in [
                 FeedbackType.REACTION,
                 FeedbackType.BOTH,
@@ -154,6 +157,6 @@ class NazurinDispatcher(Dispatcher):
         except AlreadyExistsError as error:
             current_time = time.time()
             # Rate limiting: only allow 1 error reply per second
-            if current_time - self._last_already_exists_error_reply_time > 2.0:
+            if current_time - self._last_reply_time > 2.0:
                 await message.reply(error.msg)
-                self._last_already_exists_error_reply_time = current_time
+                self._last_reply_time = current_time
