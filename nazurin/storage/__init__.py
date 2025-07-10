@@ -87,11 +87,11 @@ class Storage:
     async def store(self, illust: Illust):
         await self.danbooru_upload(illust)
 
-        try:
-            for file in illust.all_files:
+        for file in illust.all_files:
+            try:
                 os.unlink(file.path)
-        except Exception as e:
-            logger.exception(f"Error while deleting files: {e}")
+            except Exception as e:
+                logger.exception(f"Error while deleting files: {e}")
         # tasks = [disk.store(illust.all_files) for disk in self.disks]
         # await asyncio.gather(*tasks)
         logger.info("Storage completed")
