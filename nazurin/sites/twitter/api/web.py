@@ -7,6 +7,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from http import HTTPStatus
+import time
 from typing import TYPE_CHECKING, ClassVar, Optional
 from urllib.parse import urlparse
 
@@ -502,8 +503,14 @@ class WebAPI(BaseAPI):
         method = method.upper()
         try:
             home_page_source = await self._get_home_page_source()
-            tid_generator = ClientTransaction(home_page_source)
-            return tid_generator.generate_transaction_id(method, path)
+
+            while True:
+                try:
+                    tid_generator = ClientTransaction(home_page_source)
+                    return tid_generator.generate_transaction_id(method, path)
+                except Exception as e:
+                    logger.error(f"Failed to generate Twitter client transaction ID: {e}, retrying")
+                    time.sleep(random.randint(1, 20))
         except Exception as error:
             message = f"Failed to generate Twitter client transaction ID: {error}"
             logger.error(message)
