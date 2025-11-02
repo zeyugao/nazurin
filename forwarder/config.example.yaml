@@ -1,0 +1,9 @@
+bot_token: "123456789:ABCDEF_example_bot_token"
+watch_list:
+  - source: "https://t.me/SugarPic/71831"
+    forward_to:
+      - "@MyForwardChannel"
+      - 123456789
+    include_service_messages: false
+polling:
+  drop_pending_updates: true

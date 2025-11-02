@@ -14,15 +14,16 @@ pip install -r requirements.txt
 ```
 
 ## Configuration
-1. Copy `config.example.json` to `config.json`.
+1. Copy `config.example.yaml` to `config.yaml`.
 2. Replace `bot_token` with your bot token from @BotFather.
 3. Add entries under `watch_list`, for example:
-   ```json
-   {
-     "source": "https://t.me/SugarPic/71831",
-     "forward_to": ["@MyForwardChannel", 123456789],
-     "include_service_messages": false
-   }
+   ```yaml
+   watch_list:
+     - source: "https://t.me/SugarPic/71831"
+       forward_to:
+         - "@MyForwardChannel"
+         - 123456789
+       include_service_messages: false
    ```
    - `source`: chat to monitor. Accepts numeric IDs (e.g. `-1001234567890`), `@username`, or a `t.me` message URL such as `https://t.me/SugarPic/71831`. Links of the form `https://t.me/c/<internal_id>/...` are also supported and will be converted automatically.
    - `forward_to`: list of destination chats, each as numeric ID, `@username`, or `t.me/...` link.
@@ -33,7 +34,7 @@ pip install -r requirements.txt
 
 ## Run
 ```bash
-python forwarder.py --config config.json
+python forwarder.py --config config.yaml
 ```
 
-If the configuration file is named `config.json` in the project root, the `--config` option can be omitted. The script uses long polling, so ensure the runtime environment can reach the Telegram API.
+If the configuration file is named `config.yaml` in the project root, the `--config` option can be omitted. The script uses long polling, so ensure the runtime environment can reach the Telegram API.

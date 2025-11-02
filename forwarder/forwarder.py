@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import logging
 import pathlib
 from dataclasses import dataclass
@@ -13,6 +12,7 @@ from urllib.parse import urlparse
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import Message
+import yaml
 
 
 LOGGER = logging.getLogger(__name__)
@@ -134,11 +134,14 @@ class WatchRule:
 def load_config(config_path: pathlib.Path) -> tuple[str, List[WatchRule], bool]:
     try:
         with config_path.open("r", encoding="utf-8") as file_obj:
-            data = json.load(file_obj)
+            data = yaml.safe_load(file_obj)
     except FileNotFoundError as err:
         raise SystemExit(f"Config file not found: {config_path}") from err
-    except json.JSONDecodeError as err:
-        raise SystemExit(f"Failed to parse JSON config: {err}") from err
+    except yaml.YAMLError as err:
+        raise SystemExit(f"Failed to parse YAML config: {err}") from err
+
+    if not isinstance(data, dict):
+        raise SystemExit("Config root must be a mapping")
 
     bot_token = data.get("bot_token")
     if not bot_token or not isinstance(bot_token, str):
@@ -180,8 +183,8 @@ def parse_args() -> argparse.Namespace:
         "-c",
         "--config",
         type=pathlib.Path,
-        default=pathlib.Path("config.json"),
-        help="Path to the JSON configuration file",
+        default=pathlib.Path("config.yaml"),
+        help="Path to the YAML configuration file",
     )
     return parser.parse_args()
 
