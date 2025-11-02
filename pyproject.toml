@@ -41,6 +41,7 @@ dependencies = [
     "yarl>=1.18.3",
     "xclienttransaction~=0.0.7",
     "pyyaml>=6.0.2",
+    "telethon>=1.41.2",
 ]
 
 [project.scripts]

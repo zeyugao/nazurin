@@ -6,54 +6,94 @@ import asyncio
 import logging
 import pathlib
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Tuple, Union
+from typing import Any, Dict, Iterable, List, Sequence, Tuple, Union
 from urllib.parse import urlparse
 
-from aiogram import Bot, Dispatcher, F, Router
-from aiogram.exceptions import TelegramBadRequest
-from aiogram.types import Message
 import yaml
+from telethon import TelegramClient, events
+from telethon.errors import RPCError
+from telethon.sessions import StringSession
+from telethon.utils import get_peer_id
 
 
 LOGGER = logging.getLogger(__name__)
 
 
-SERVICE_MESSAGE_ATTRIBUTES = (
-    "new_chat_members",
-    "left_chat_member",
-    "new_chat_title",
-    "new_chat_photo",
-    "delete_chat_photo",
-    "group_chat_created",
-    "supergroup_chat_created",
-    "channel_chat_created",
-    "message_auto_delete_timer_changed",
-    "pinned_message",
-    "invoice",
-    "successful_payment",
-    "user_shared",
-    "chat_shared",
-    "connected_website",
-    "write_access_allowed",
-    "passport_data",
-    "proximity_alert_triggered",
-    "forum_topic_created",
-    "forum_topic_closed",
-    "forum_topic_reopened",
-    "general_forum_topic_hidden",
-    "general_forum_topic_unhidden",
-    "giveaway_created",
-    "giveaway",
-    "giveaway_winners",
-    "video_chat_started",
-    "video_chat_ended",
-    "video_chat_participants_invited",
-    "video_chat_scheduled",
-)
-
-
 ChatIdentifier = Union[int, str]
-ResolvedWatch = Tuple["WatchRule", str]
+
+
+@dataclass(frozen=True)
+class WatchRule:
+    sources: List[ChatIdentifier]
+    forward_to: List[ChatIdentifier]
+    include_service_messages: bool = False
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "WatchRule":
+        sources_raw = data.get("sources")
+        if sources_raw is None:
+            source_single = (
+                data.get("source")
+                or data.get("source_chat_id")
+                or data.get("source_chat")
+            )
+            if source_single is None:
+                raise ValueError("watch entry must include source or sources")
+            sources_list = [source_single]
+        elif isinstance(sources_raw, Iterable) and not isinstance(
+            sources_raw, (str, bytes)
+        ):
+            sources_list = list(sources_raw)
+        else:
+            raise ValueError("sources must be a list of chat identifiers")
+
+        normalized_sources = [
+            _normalize_chat_identifier(item) for item in sources_list
+        ]
+        if not normalized_sources:
+            raise ValueError("sources list cannot be empty")
+
+        forward_to_raw = data.get("forward_to")
+        if not isinstance(forward_to_raw, Iterable) or isinstance(
+            forward_to_raw, (str, bytes)
+        ):
+            raise ValueError("forward_to must be a list of chat identifiers")
+
+        destinations = [
+            _normalize_chat_identifier(item) for item in forward_to_raw
+        ]
+        if not destinations:
+            raise ValueError("forward_to must contain at least one destination")
+
+        include_service_messages = bool(
+            data.get("include_service_messages", False)
+        )
+        return cls(
+            sources=normalized_sources,
+            forward_to=destinations,
+            include_service_messages=include_service_messages,
+        )
+
+
+@dataclass(frozen=True)
+class ResolvedDestination:
+    target: Any
+    label: str
+
+
+@dataclass(frozen=True)
+class ResolvedWatch:
+    rule: WatchRule
+    destinations: Tuple[ResolvedDestination, ...]
+    label: str
+
+
+@dataclass(frozen=True)
+class AppConfig:
+    api_id: int
+    api_hash: str
+    session: Union[StringSession, str]
+    watch_rules: List[WatchRule]
 
 
 def _normalize_chat_identifier(value: object) -> ChatIdentifier:
@@ -86,119 +126,28 @@ def _normalize_chat_identifier(value: object) -> ChatIdentifier:
         except ValueError:
             return f"@{candidate}"
 
-    raise ValueError("chat identifier must be string or integer")
+    raise ValueError("chat identifier must be a string or integer")
 
 
-@dataclass(frozen=True)
-class WatchRule:
-    sources: List[ChatIdentifier]
-    forward_to: List[ChatIdentifier]
-    include_service_messages: bool = False
-
-    @classmethod
-    def from_dict(cls, data: Dict) -> "WatchRule":
-        sources_raw = data.get("sources")
-        if sources_raw is None:
-            source_single = (
-                data.get("source")
-                or data.get("source_chat_id")
-                or data.get("source_chat")
-            )
-            if source_single is None:
-                raise ValueError("watch entry must include source or sources")
-            sources_raw = [source_single]
-        elif isinstance(sources_raw, Iterable) and not isinstance(
-            sources_raw, (str, bytes)
-        ):
-            sources_raw = list(sources_raw)
-        else:
-            raise ValueError("sources must be a list of chat identifiers")
-
-        normalized_sources: List[ChatIdentifier] = []
-        for item in sources_raw:
-            try:
-                normalized_sources.append(_normalize_chat_identifier(item))
-            except ValueError as err:
-                raise ValueError("invalid source chat identifier") from err
-
-        if not normalized_sources:
-            raise ValueError("sources list cannot be empty")
-
-        forward_to_raw = data.get("forward_to")
-        if not isinstance(forward_to_raw, Iterable) or isinstance(
-            forward_to_raw, (str, bytes)
-        ):
-            raise ValueError("forward_to must be a list of chat identifiers")
-
-        destinations: List[ChatIdentifier] = []
-        for item in forward_to_raw:
-            try:
-                destinations.append(_normalize_chat_identifier(item))
-            except ValueError as err:
-                raise ValueError(
-                    "forward_to must contain valid chat identifiers"
-                ) from err
-
-        include_service_messages = bool(data.get("include_service_messages", False))
-        return cls(
-            sources=normalized_sources,
-            forward_to=destinations,
-            include_service_messages=include_service_messages,
-        )
-
-
-def load_config(config_path: pathlib.Path) -> tuple[str, List[WatchRule], bool]:
-    try:
-        with config_path.open("r", encoding="utf-8") as file_obj:
-            data = yaml.safe_load(file_obj)
-    except FileNotFoundError as err:
-        raise SystemExit(f"Config file not found: {config_path}") from err
-    except yaml.YAMLError as err:
-        raise SystemExit(f"Failed to parse YAML config: {err}") from err
-
-    if not isinstance(data, dict):
-        raise SystemExit("Config root must be a mapping")
-
-    bot_token = data.get("bot_token")
-    if not bot_token or not isinstance(bot_token, str):
-        raise SystemExit("bot_token must be provided in the config file")
-
-    watch_entries = data.get("watch_list")
-    if not isinstance(watch_entries, list) or not watch_entries:
-        raise SystemExit("watch_list must be a non-empty list of watch rules")
-
-    drop_pending_updates = bool(data.get("polling", {}).get("drop_pending_updates", True))
-
-    rules = [WatchRule.from_dict(entry) for entry in watch_entries]
-    return bot_token, rules, drop_pending_updates
-
-
-async def resolve_watch_rules(bot: Bot, rules: Iterable[WatchRule]) -> Dict[int, ResolvedWatch]:
-    watch_map: Dict[int, ResolvedWatch] = {}
-    for rule in rules:
-        if not rule.sources:
-            continue
-        for source in rule.sources:
-            if isinstance(source, int):
-                chat_id = source
-                label = str(source)
-            else:
-                try:
-                    chat = await bot.get_chat(source)
-                except TelegramBadRequest as err:
-                    raise SystemExit(
-                        f"Failed to resolve source chat '{source}': {err}"
-                    ) from err
-                chat_id = chat.id
-                label = source
-            if chat_id in watch_map:
-                raise SystemExit(f"Duplicate watch rule for chat ID {chat_id}")
-            watch_map[chat_id] = (rule, label)
-    return watch_map
+def _identifier_label(
+    identifier: ChatIdentifier, entity: Any | None = None
+) -> str:
+    if entity is not None:
+        username = getattr(entity, "username", None)
+        title = getattr(entity, "title", None)
+        if username:
+            return f"@{username}"
+        if title:
+            return title
+    if isinstance(identifier, str):
+        return identifier
+    return str(identifier)
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Telegram chat forwarder bot (aiogram)")
+    parser = argparse.ArgumentParser(
+        description="Telegram forwarder using a user account (Telethon)"
+    )
     parser.add_argument(
         "-c",
         "--config",
@@ -209,68 +158,178 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _is_service_message(message: Message) -> bool:
-    return any(bool(getattr(message, attr, None)) for attr in SERVICE_MESSAGE_ATTRIBUTES)
+def load_config(config_path: pathlib.Path) -> AppConfig:
+    try:
+        with config_path.open("r", encoding="utf-8") as fh:
+            data = yaml.safe_load(fh)
+    except FileNotFoundError as err:
+        raise SystemExit(f"Config file not found: {config_path}") from err
+    except yaml.YAMLError as err:
+        raise SystemExit(f"Failed to parse YAML config: {err}") from err
+
+    if not isinstance(data, dict):
+        raise SystemExit("Config root must be a mapping")
+
+    try:
+        api_id = int(data["api_id"])
+    except (KeyError, ValueError, TypeError) as err:
+        raise SystemExit("api_id must be provided as an integer") from err
+
+    api_hash = data.get("api_hash")
+    if not api_hash or not isinstance(api_hash, str):
+        raise SystemExit("api_hash must be provided as a string")
+
+    session_string = data.get("session_string")
+    session_file = data.get("session_file")
+    session: Union[StringSession, str]
+
+    if session_string:
+        if not isinstance(session_string, str):
+            raise SystemExit("session_string must be a string")
+        session = StringSession(session_string.strip())
+    elif session_file:
+        session_path = pathlib.Path(session_file)
+        if not session_path.is_absolute():
+            session_path = (config_path.parent / session_path).resolve()
+        session = str(session_path)
+    else:
+        raise SystemExit("Either session_string or session_file must be provided")
+
+    watch_entries = data.get("watch_list")
+    if not isinstance(watch_entries, Sequence) or not watch_entries:
+        raise SystemExit("watch_list must be a non-empty list of watch rules")
+
+    try:
+        rules = [WatchRule.from_dict(entry) for entry in watch_entries]
+    except ValueError as err:
+        raise SystemExit(f"Invalid watch rule: {err}") from err
+
+    return AppConfig(
+        api_id=api_id,
+        api_hash=api_hash,
+        session=session,
+        watch_rules=rules,
+    )
 
 
-async def process_message(message: Message, watch_map: Dict[int, ResolvedWatch]) -> None:
-    entry = watch_map.get(message.chat.id)
-    if entry is None:
-        return
-    rule, _label = entry
-
-    if message.is_automatic_forward:
-        return
-
-    if not rule.include_service_messages and _is_service_message(message):
-        return
-
-    for dest_chat_id in rule.forward_to:
-        try:
-            await message.forward(chat_id=dest_chat_id)
-        except TelegramBadRequest as err:
-            LOGGER.error(
-                "Failed to forward message %s from chat %s to %s: %s",
-                message.message_id,
-                message.chat.id,
-                dest_chat_id,
-                err,
+async def resolve_watch_rules(
+    client: TelegramClient, rules: Iterable[WatchRule]
+) -> Dict[int, ResolvedWatch]:
+    watch_map: Dict[int, ResolvedWatch] = {}
+    for rule in rules:
+        destinations: List[ResolvedDestination] = []
+        for dest in rule.forward_to:
+            try:
+                entity = await client.get_entity(dest)
+            except RPCError as err:
+                raise SystemExit(
+                    f"Failed to resolve forward target '{dest}': {err}"
+                ) from err
+            destinations.append(
+                ResolvedDestination(
+                    target=entity,
+                    label=_identifier_label(dest, entity),
+                )
             )
 
+        resolved_destinations = tuple(destinations)
+        if not resolved_destinations:
+            continue
 
-async def run_bot(config_path: pathlib.Path) -> None:
-    bot_token, rules, drop_pending_updates = load_config(config_path)
-    bot = Bot(token=bot_token)
-    watch_map = await resolve_watch_rules(bot, rules)
-    dispatcher = Dispatcher()
-    router = Router(name="forwarder")
-    watch_ids = tuple(watch_map.keys())
+        for source in rule.sources:
+            try:
+                entity = await client.get_entity(source)
+            except RPCError as err:
+                raise SystemExit(
+                    f"Failed to resolve source chat '{source}': {err}"
+                ) from err
 
-    router.message.filter(F.chat.id.in_(watch_ids))
-    router.channel_post.filter(F.chat.id.in_(watch_ids))
+            try:
+                peer_id = get_peer_id(entity)
+            except ValueError as err:
+                raise SystemExit(
+                    f"Could not derive peer ID for source '{source}': {err}"
+                ) from err
 
-    @router.message()
-    async def handle_message(message: Message) -> None:
-        await process_message(message, watch_map)
+            if peer_id in watch_map:
+                raise SystemExit(
+                    f"Duplicate watch rule for chat ID {peer_id}"
+                )
 
-    @router.channel_post()
-    async def handle_channel_post(message: Message) -> None:
-        await process_message(message, watch_map)
+            watch_map[peer_id] = ResolvedWatch(
+                rule=rule,
+                destinations=resolved_destinations,
+                label=_identifier_label(source, entity),
+            )
+    return watch_map
 
-    dispatcher.include_router(router)
 
-    await bot.delete_webhook(drop_pending_updates=drop_pending_updates)
+def register_forward_handler(
+    client: TelegramClient, watch_map: Dict[int, ResolvedWatch]
+) -> None:
+    @client.on(events.NewMessage)
+    async def _(event: events.NewMessage.Event) -> None:
+        if event.out:
+            return
+
+        peer_id = None
+        if event.message is not None and event.message.peer_id is not None:
+            try:
+                peer_id = get_peer_id(event.message.peer_id)
+            except ValueError:
+                peer_id = None
+        if peer_id is None:
+            return
+
+        watch = watch_map.get(peer_id)
+        if watch is None:
+            return
+
+        message = event.message
+        if (
+            not watch.rule.include_service_messages
+            and getattr(message, "action", None) is not None
+        ):
+            return
+
+        for destination in watch.destinations:
+            try:
+                await client.forward_messages(destination.target, message)
+            except RPCError as err:
+                LOGGER.error(
+                    "Failed to forward message %s from %s to %s: %s",
+                    message.id,
+                    watch.label,
+                    destination.label,
+                    err,
+                )
+
+
+async def run(config_path: pathlib.Path) -> None:
+    config = load_config(config_path)
+    client = TelegramClient(config.session, config.api_id, config.api_hash)
+
+    await client.connect()
+    if not await client.is_user_authorized():
+        raise SystemExit(
+            "Session is not authorized. Generate a valid session_string using Telethon."
+        )
+
+    watch_map = await resolve_watch_rules(client, config.watch_rules)
+    if not watch_map:
+        raise SystemExit("No valid watch rules available after resolution")
+
+    register_forward_handler(client, watch_map)
 
     sources = [
-        f"{chat_id} ({label})" if label else str(chat_id)
-        for chat_id, (_rule, label) in watch_map.items()
+        f"{resolved.label} ({peer_id})" for peer_id, resolved in watch_map.items()
     ]
+    LOGGER.info("Monitoring sources: %s", ", ".join(sources))
 
-    LOGGER.info(
-        "Starting forwarder for source chats: %s",
-        ", ".join(sources),
-    )
-    await dispatcher.start_polling(bot, allowed_updates=dispatcher.resolve_used_update_types())
+    try:
+        await client.run_until_disconnected()
+    finally:
+        await client.disconnect()
 
 
 def main() -> None:
@@ -280,7 +339,7 @@ def main() -> None:
         level=logging.INFO,
     )
     try:
-        asyncio.run(run_bot(args.config))
+        asyncio.run(run(args.config))
     except KeyboardInterrupt:
         LOGGER.info("Shutting down on keyboard interrupt")
 

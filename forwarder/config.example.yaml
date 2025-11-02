@@ -1,4 +1,8 @@
-bot_token: "123456789:ABCDEF_example_bot_token"
+api_id: 123456
+api_hash: "0123456789abcdef0123456789abcdef"
+# Recommended: use Telethon StringSession; see README for generator script.
+session_string: "1AABBBCCC...replace_with_your_own..."
+
 watch_list:
   - sources:
       - "https://t.me/SugarPic/71831"
@@ -10,5 +14,3 @@ watch_list:
   - source: -1002222333344
     forward_to:
       - 987654321
-polling:
-  drop_pending_updates: true
