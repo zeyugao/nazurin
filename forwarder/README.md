@@ -19,13 +19,18 @@ pip install -r requirements.txt
 3. Add entries under `watch_list`, for example:
    ```yaml
    watch_list:
-     - source: "https://t.me/SugarPic/71831"
+     - sources:
+         - "https://t.me/SugarPic/71831"
+         - "@AnotherChannel"
        forward_to:
          - "@MyForwardChannel"
          - 123456789
        include_service_messages: false
+     - source: -1002222333344
+       forward_to:
+         - 987654321
    ```
-   - `source`: chat to monitor. Accepts numeric IDs (e.g. `-1001234567890`), `@username`, or a `t.me` message URL such as `https://t.me/SugarPic/71831`. Links of the form `https://t.me/c/<internal_id>/...` are also supported and will be converted automatically.
+   - `sources`: list of chats to monitor together. Each entry can be a numeric ID (e.g. `-1001234567890`), `@username`, or a `t.me` message URL such as `https://t.me/SugarPic/71831`. Links of the form `https://t.me/c/<internal_id>/...` are also supported and will be converted automatically. For convenience, a single `source` field is also accepted.
    - `forward_to`: list of destination chats, each as numeric ID, `@username`, or `t.me/...` link.
    - `include_service_messages`: set to `true` to forward service messages such as members joining a group.
 4. Optional `polling.drop_pending_updates` controls whether pending updates are skipped on startup (default `true`).

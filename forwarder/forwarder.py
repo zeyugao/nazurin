@@ -6,7 +6,7 @@ import asyncio
 import logging
 import pathlib
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Union
+from typing import Dict, Iterable, List, Tuple, Union
 from urllib.parse import urlparse
 
 from aiogram import Bot, Dispatcher, F, Router
@@ -53,6 +53,7 @@ SERVICE_MESSAGE_ATTRIBUTES = (
 
 
 ChatIdentifier = Union[int, str]
+ResolvedWatch = Tuple["WatchRule", str]
 
 
 def _normalize_chat_identifier(value: object) -> ChatIdentifier:
@@ -90,23 +91,38 @@ def _normalize_chat_identifier(value: object) -> ChatIdentifier:
 
 @dataclass(frozen=True)
 class WatchRule:
-    source: ChatIdentifier
+    sources: List[ChatIdentifier]
     forward_to: List[ChatIdentifier]
     include_service_messages: bool = False
 
     @classmethod
     def from_dict(cls, data: Dict) -> "WatchRule":
-        source_raw = (
-            data.get("source")
-            or data.get("source_chat_id")
-            or data.get("source_chat")
-        )
-        if source_raw is None:
-            raise ValueError("watch entry must include source or source_chat_id")
-        try:
-            source_identifier = _normalize_chat_identifier(source_raw)
-        except ValueError as err:
-            raise ValueError("invalid source chat identifier") from err
+        sources_raw = data.get("sources")
+        if sources_raw is None:
+            source_single = (
+                data.get("source")
+                or data.get("source_chat_id")
+                or data.get("source_chat")
+            )
+            if source_single is None:
+                raise ValueError("watch entry must include source or sources")
+            sources_raw = [source_single]
+        elif isinstance(sources_raw, Iterable) and not isinstance(
+            sources_raw, (str, bytes)
+        ):
+            sources_raw = list(sources_raw)
+        else:
+            raise ValueError("sources must be a list of chat identifiers")
+
+        normalized_sources: List[ChatIdentifier] = []
+        for item in sources_raw:
+            try:
+                normalized_sources.append(_normalize_chat_identifier(item))
+            except ValueError as err:
+                raise ValueError("invalid source chat identifier") from err
+
+        if not normalized_sources:
+            raise ValueError("sources list cannot be empty")
 
         forward_to_raw = data.get("forward_to")
         if not isinstance(forward_to_raw, Iterable) or isinstance(
@@ -125,7 +141,7 @@ class WatchRule:
 
         include_service_messages = bool(data.get("include_service_messages", False))
         return cls(
-            source=source_identifier,
+            sources=normalized_sources,
             forward_to=destinations,
             include_service_messages=include_service_messages,
         )
@@ -157,23 +173,27 @@ def load_config(config_path: pathlib.Path) -> tuple[str, List[WatchRule], bool]:
     return bot_token, rules, drop_pending_updates
 
 
-async def resolve_watch_rules(bot: Bot, rules: Iterable[WatchRule]) -> Dict[int, WatchRule]:
-    watch_map: Dict[int, WatchRule] = {}
+async def resolve_watch_rules(bot: Bot, rules: Iterable[WatchRule]) -> Dict[int, ResolvedWatch]:
+    watch_map: Dict[int, ResolvedWatch] = {}
     for rule in rules:
-        source = rule.source
-        if isinstance(source, int):
-            chat_id = source
-        else:
-            try:
-                chat = await bot.get_chat(source)
-            except TelegramBadRequest as err:
-                raise SystemExit(
-                    f"Failed to resolve source chat '{source}': {err}"
-                ) from err
-            chat_id = chat.id
-        if chat_id in watch_map:
-            raise SystemExit(f"Duplicate watch rule for chat ID {chat_id}")
-        watch_map[chat_id] = rule
+        if not rule.sources:
+            continue
+        for source in rule.sources:
+            if isinstance(source, int):
+                chat_id = source
+                label = str(source)
+            else:
+                try:
+                    chat = await bot.get_chat(source)
+                except TelegramBadRequest as err:
+                    raise SystemExit(
+                        f"Failed to resolve source chat '{source}': {err}"
+                    ) from err
+                chat_id = chat.id
+                label = source
+            if chat_id in watch_map:
+                raise SystemExit(f"Duplicate watch rule for chat ID {chat_id}")
+            watch_map[chat_id] = (rule, label)
     return watch_map
 
 
@@ -193,10 +213,11 @@ def _is_service_message(message: Message) -> bool:
     return any(bool(getattr(message, attr, None)) for attr in SERVICE_MESSAGE_ATTRIBUTES)
 
 
-async def process_message(message: Message, watch_map: Dict[int, WatchRule]) -> None:
-    rule = watch_map.get(message.chat.id)
-    if rule is None:
+async def process_message(message: Message, watch_map: Dict[int, ResolvedWatch]) -> None:
+    entry = watch_map.get(message.chat.id)
+    if entry is None:
         return
+    rule, _label = entry
 
     if message.is_automatic_forward:
         return
@@ -240,13 +261,10 @@ async def run_bot(config_path: pathlib.Path) -> None:
 
     await bot.delete_webhook(drop_pending_updates=drop_pending_updates)
 
-    sources = []
-    for chat_id in watch_ids:
-        rule = watch_map[chat_id]
-        if isinstance(rule.source, str):
-            sources.append(f"{chat_id} ({rule.source})")
-        else:
-            sources.append(str(chat_id))
+    sources = [
+        f"{chat_id} ({label})" if label else str(chat_id)
+        for chat_id, (_rule, label) in watch_map.items()
+    ]
 
     LOGGER.info(
         "Starting forwarder for source chats: %s",
